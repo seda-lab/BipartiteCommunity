@@ -66,7 +66,7 @@ int main(int argc, char **argv){
 			
 		}
 	} else if(string(argv[1]) == "projected"){
-		vector< string > filenames = { "../../test_data/bipartite1.txt"};
+		vector< string > filenames = { "../../test_data/bipartite2.txt"};
 
 		for(auto &filename : filenames){
 			cout << "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" << endl;
@@ -76,13 +76,13 @@ int main(int argc, char **argv){
 				cout<< "LOOPS === " << loops << endl;
 				BipartiteNetwork B(filename.c_str());
 				B.print_basic();
-				WeightedProjector P(B, true, bool(loops) ); //test hyperbolic on bipartite 2
+				HyperbolicProjector P(B, true, bool(loops) ); //test hyperbolic on bipartite 2
 				WeightedNetwork W = P.project();
 				W.print_basic();
-				ProjectedModularity<WeightedProjector> Q(P, W);
+				ProjectedModularity<HyperbolicProjector> Q(P, W);
 				Q.print_basic();
 				
-				ProjectedLouvain< ProjectedModularity<WeightedProjector> > L(Q);
+				ProjectedLouvain< ProjectedModularity<HyperbolicProjector> > L(Q);
 				L.print_basic();
 				L.optimise();
 				L.print_basic();

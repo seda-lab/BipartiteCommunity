@@ -158,7 +158,7 @@ class HyperbolicProjector : public Projector {
 			
 		double dsum(){
 			double sum = 0;
-			for(int i=alt_start; i<alt_end; ++i){ sum += G.degrees[i]*(G.degrees[i]-inc)/(G.degrees[i]-inc); }
+			for(int i=alt_start; i<alt_end; ++i){ sum += G.degrees[i];}
 			return sum;				
 		}		
 		WeightedNetwork project(){
