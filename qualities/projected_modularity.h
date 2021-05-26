@@ -46,6 +46,7 @@ void ProjectedModularity<T>::init(){
 	tot.resize( num_communities ); 
 	for(int i=0; i<num_communities; ++i){ in[i] = 0; tot[i] = 0;}
 
+	
 	//loop over edges
 	for(unsigned i=0;i<G.get_nbrs.size();++i){
 		for(unsigned j=0; j<G.get_nbrs[i].size(); ++j){
@@ -54,15 +55,15 @@ void ProjectedModularity<T>::init(){
 			} 
 		}
 	}
-	
+
 	
 	//loop over nodes in the correct bipartite set
-	for(int i=P.start; i<P.end; ++i){
-		tot[ node_to_comm[i] ] += P.G.degrees[i]; 
+	for(unsigned i=0; i<node_to_comm.size(); ++i){
+		tot[ node_to_comm[i] ] += P.G.degrees[P.start + i]; 
 	}	
-
 	//compute the normalisation factor
 	dsum = P.dsum()/( (P.G.num_links/2)*( (P.G.num_links/2)-P.inc) );
+
 }
 
 
@@ -73,7 +74,7 @@ double ProjectedModularity<T>::eval(){
 	for(int i=0; i<num_communities; ++i){
 		if(comm_to_node.size()>0){		//tag for empty community 
 			//D( cout << "\n" << quality_type << " eval:: community " << i << " in=" << in[i] << " dsum=" << dsum << " 2E=" << G.num_links << " += " << in[i] - dsum*tot[i]*tot[i] << endl );	
-			q += in[i] - dsum*tot[i]*tot[i];
+			q += in[i] - gamma*dsum*tot[i]*tot[i];
 		}
 	}
 	return q/G.num_links;
@@ -113,7 +114,7 @@ double ProjectedModularity<T>::gain(int node, int comm, double degree_in_comm) {
 	//D( cout << quality_type << " gain:: node " << node << " into " << comm << " knc= " << degree_in_comm << " qn = " << P.G.degrees[P.start+node] <<
 	//" dsum= " << dsum << " tot[" << comm << "] = " << tot[comm] << " dQ = " << (degree_in_comm - dsum*tot[comm]*P.G.degrees[P.start+node]) << endl );
 	
-	return (degree_in_comm - dsum*tot[comm]*P.G.degrees[P.start+node]); //*(2/G.num_links)
+	return (degree_in_comm - gamma*dsum*tot[comm]*P.G.degrees[P.start+node]); //*(2/G.num_links)
 	
 }
 
@@ -141,7 +142,7 @@ double ProjectedModularity<T>::join_gain(int comm1, int comm2, double v12) {
 	//<< " tot[" << comm1 << "] = " << tot[comm1] << " tot[" << comm2 << "] = " << tot[comm2] <<
 	//" dQ = " << (2*v12 - 2*tot[comm1]*tot[comm2]/G.num_links) );
 	
-	return (v12 - dsum*tot[comm1]*tot[comm2]); //*(2/G.num_links)
+	return (v12 - gamma*dsum*tot[comm1]*tot[comm2]); //*(2/G.num_links)
 
 }
 

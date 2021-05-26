@@ -13,6 +13,7 @@ class Modularity : public Quality<T> {
 		//Doing this way avoids having to sue this-> in the method definitions
 		using Quality<T>::num_communities;
 		using Quality<T>::val;
+		using Quality<T>::gamma;
 		using Quality<T>::node_to_comm;
 		using Quality<T>::comm_to_node;
 		using Quality<T>::weights;
@@ -79,7 +80,7 @@ double Modularity<T>::eval(){
 	for(int i=0; i<num_communities; ++i){
 		if(comm_to_node.size()>0){		//tag for empty community 
 			//D( cout << "\n" << quality_type << " eval:: community " << i << " in=" << in[i] << " tot=" << tot[i] << " 2E=" << G.num_links << endl );
-			q += in[i] - tot[i]*tot[i]/G.num_links;
+			q += in[i] - gamma*tot[i]*tot[i]/G.num_links;
 		}
 	}
 	return q/G.num_links;
@@ -115,7 +116,7 @@ double Modularity<T>::gain(int node, int comm, double degree_in_comm) {
 	//D( cout << quality_type << " gain:: node " << node << " into " << comm << " knc= " << degree_in_comm << " kn = " << G.degrees[node] <<
 	//" degree[" << node << "] = " << G.degrees[node] << " tot[" << comm << "] = " << tot[comm] << " dQ = " << (degree_in_comm - tot[comm]*G.degrees[node]/G.num_links) << endl );
 
-	return (degree_in_comm - tot[comm]*G.degrees[node]/G.num_links); //*(2/G.num_links)
+	return (degree_in_comm - gamma*tot[comm]*G.degrees[node]/G.num_links); //*(2/G.num_links)
 }
 
 
@@ -142,7 +143,7 @@ double Modularity<T>::join_gain(int comm1, int comm2, double v12) {
 	//<< " tot[" << comm1 << "] = " << tot[comm1] << " tot[" << comm2 << "] = " << tot[comm2] <<
 	//" dQ = " << (2*v12 - 2*tot[comm1]*tot[comm2]/G.num_links) );
 
-	return (v12 - tot[comm1]*tot[comm2]/G.num_links); //*(2/G.num_links)*(2)
+	return (v12 - gamma*tot[comm1]*tot[comm2]/G.num_links); //*(2/G.num_links)*(2)
 
 }
 #endif

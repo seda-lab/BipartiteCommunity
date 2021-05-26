@@ -70,7 +70,7 @@ double BarberModularity::eval(){
 		if(comm_to_node.size()>0){		//tag for empty community 
 			//D( cout << "\n" << quality_type << " eval:: community " << i << " in=" << in[i] << " q=" << tot[i] << " d=" << tot[num_communities+i] << " F=" << G.num_links/2 << 
 			//"+=" << in[i] - 2*tot[i]*tot[num_communities+i]/G.num_links <<endl );			
-			q += in[i] - 2*tot[i]*tot[num_communities+i]/G.num_links; //factor of 2 is for double counting edges
+			q += in[i] - gamma*tot[i]*tot[num_communities+i]*(2/G.num_links); //factor of 2 is for double counting edges
 		}
 	}
 	return 2*q/G.num_links;
@@ -124,13 +124,13 @@ double BarberModularity::gain(int node, int comm, double degree_in_comm) {
 		return (degree_in_comm - 2*G.degrees[node]*tot[num_communities + comm]/G.num_links); //factor 2 is for double counting total number of links
 	} 
 	//D(cout << " tot[" << comm << "] = " << tot[comm] << " dQ = " << (degree_in_comm - 2*tot[comm]*G.degrees[node]/G.num_links) << endl );	
-	return (degree_in_comm - 2*tot[comm]*G.degrees[node]/G.num_links); //factor 2 is for double counting total number of links
+	return (degree_in_comm - gamma*tot[comm]*G.degrees[node]*(2/G.num_links)); //factor 2 is for double counting total number of links
 
 }
 
 void BarberModularity::join(int comm1, int comm2, double v12){
 
-	D(cout << quality_type << "join " << comm1 << " into " << comm2 << " v12 = " << v12 << endl);
+	//D(cout << quality_type << "join " << comm1 << " into " << comm2 << " v12 = " << v12 << endl);
 
 	in[comm2]  += in[comm1] + v12;
 	in[comm1] = 0;
@@ -158,7 +158,7 @@ double BarberModularity::join_gain(int comm1, int comm2, double v12) {
 	//" dQ = " << (v12 - (tot[comm1]*tot[comm2+num_communities] + tot[comm1+num_communities]*tot[comm2])*(2/G.num_links)) << endl);
 
 	 //factor 2 is for double counting total number of links
-	return (v12 - (tot[comm1]*tot[comm2+num_communities] + tot[comm1+num_communities]*tot[comm2])*(2/G.num_links)); //*(2/G.num_links)
+	return (v12 - gamma*(tot[comm1]*tot[comm2+num_communities] + tot[comm1+num_communities]*tot[comm2])*(2/G.num_links)); //*(2/G.num_links)
 
 }
 
