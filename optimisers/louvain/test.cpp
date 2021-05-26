@@ -4,13 +4,14 @@
 #include "bilouvain.h"
 #include "projected_louvain.h"
 #include "aggregate.h"
+#include "dual_projection.h"
 
 
 using namespace std; 
 
 int main(int argc, char **argv){
 	
-	if(argc==1){ cout << "Options are louvain, aggregate, bilouvain, projected" << endl; }
+	if(argc==1){ cout << "Options are louvain, aggregate, bilouvain, projected, dual" << endl; }
 	else if(string(argv[1]) == "louvain"){
 		vector< string > filenames = { "../../test_data/graph1.txt", "../../test_data/graph2.txt", "../../test_data/graph3.txt"};
 
@@ -76,7 +77,7 @@ int main(int argc, char **argv){
 				cout<< "LOOPS === " << loops << endl;
 				BipartiteNetwork B(filename.c_str());
 				B.print_basic();
-				HyperbolicProjector P(B, true, bool(loops) ); //test hyperbolic on bipartite 2
+				HyperbolicProjector P(B, true, false ); 
 				WeightedNetwork W = P.project();
 				W.print_basic();
 				ProjectedModularity<HyperbolicProjector> Q(P, W);
@@ -87,11 +88,27 @@ int main(int argc, char **argv){
 				L.optimise();
 				L.print_basic();
 			}
-			
+		}
+		
+	} else if(string(argv[1]) == "dual"){
+		vector< string > filenames = { "../../test_data/bipartite1.txt", "../../test_data/bipartite1.txt" };
+
+		for(auto &filename : filenames){
+			cout << "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" << endl;
+			cout << "\\CHECKING " << filename << endl;
+			cout << "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\" << endl;
+
+			BipartiteNetwork B(filename.c_str());
+			B.print_basic();
+			BarberModularity Q(B);	
+				
+			DualProjection< BarberModularity, WeightedProjector > L(Q);
+			L.optimise();
+			L.print_basic();
 		}
 		
 	} else {
-		cout << "Options are louvain, bilouvain, projected" << endl;
+		cout << "Options are louvain, bilouvain, projected, dual" << endl;
 	}
 
 

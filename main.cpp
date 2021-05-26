@@ -5,7 +5,6 @@
 #include <set>
 #include <string>
 #include <algorithm>
-#include <stdio.h>     /* for printf */
 #include <stdlib.h>    /* for exit */
 
 #include "networks/network_types.h"
@@ -24,7 +23,7 @@ set<string> projectors = {"weighted", "hyperbolic"};
 string projector = "";
 //set<string> qualities = {"modularity", "barber_mod", "projected_mod"};
 //string quality = "modularity";
-set<string> optimisers = {"sync_labelprop", "async_labelprop", "aggregate", "louvain", "bilouvain", "projected_louvain"};
+set<string> optimisers = {"sync_labelprop", "async_labelprop", "aggregate", "louvain", "bilouvain", "projected_louvain", "dual_projection"};
 string optimiser = "louvain";
 
 string stringify(set<string> &x){
@@ -118,7 +117,7 @@ int main(int argc, char **argv){
     }
     char* filename = argv[optind];
     
-    if(!bipartite && (optimiser == "bilouvain" || optimiser == "projected_mod") ){ cerr << "Can only use " << optimiser << " on bipartite networks" << endl; exit(1); }
+    if(!bipartite && (optimiser == "bilouvain" || optimiser == "projected_louvain" || optimiser == "dual_projection") ){ cerr << "Can only use " << optimiser << " on bipartite networks" << endl; exit(1); }
     if(bipartite && (optimiser == "sync_labelprop" || optimiser == "async_labelprop") ){ cerr << "Can only use " << optimiser << " on unipartite networks" << endl; exit(1); }
     if(optimiser == "louvain" && optimiser == "barber_mod" ){ cerr << "Can't use louvain on bipartite networks. Try bilouvain." << endl; exit(1); }
     if(projector != "" && !bipartite){ cerr << "Can only project bipartite networks. Use -b flag if " << filename << " is bipartite." << endl; exit(1); }
@@ -129,22 +128,38 @@ int main(int argc, char **argv){
 		BipartiteNetwork B(filename);	
 		if(projector != ""){
 			if(projector == "weighted"){ 
-				WeightedProjector P(B, left, false);  //never includes loops
-				WeightedNetwork W = P.project();
-				ProjectedModularity<WeightedProjector> Q(P, W);	
-				ProjectedLouvain< ProjectedModularity<WeightedProjector> > O(Q);
-				O.optimise();
-				O.print_labels();	
-				if(val){cout << "ProjectedModularity = " << O.val << endl; }	
+				if(optimiser == "dual_projection"){
+					BarberModularity Q(B);	
+					DualProjection< BarberModularity, WeightedProjector > O(Q);
+					O.optimise();
+					O.print_labels();	
+					if(val){cout << "BarberModularity = " << O.val << endl; }	
+				} else if(optimiser == "projected_louvain"){
+					WeightedProjector P(B, leftproj, false);  //never includes loops
+					WeightedNetwork W = P.project();
+					ProjectedModularity<WeightedProjector> Q(P, W);	
+					ProjectedLouvain< ProjectedModularity<WeightedProjector> > O(Q);
+					O.optimise();
+					O.print_labels();	
+					if(val){cout << "ProjectedModularity = " << O.val << endl; }	
+				}
 			}
 			else if(projector == "hyperbolic"){ 
-				HyperbolicProjector P(B, left, false); 
-				WeightedNetwork W = P.project();
-				ProjectedModularity<HyperbolicProjector> Q(P, W);	
-				ProjectedLouvain< ProjectedModularity<HyperbolicProjector> > O(Q);
-				O.optimise();
-				O.print_labels();	
-				if(val){cout << "ProjectedModularity = " << O.val << endl; }	
+				if(optimiser == "dual_projection"){
+					BarberModularity Q(B);	
+					DualProjection< BarberModularity, HyperbolicProjector > O(Q);
+					O.optimise();
+					O.print_labels();	
+					if(val){cout << "BarberModularity = " << O.val << endl; }	
+				} else if(optimiser == "projected_louvain"){
+					HyperbolicProjector P(B, leftproj, false); 
+					WeightedNetwork W = P.project();
+					ProjectedModularity<HyperbolicProjector> Q(P, W);	
+					ProjectedLouvain< ProjectedModularity<HyperbolicProjector> > O(Q);
+					O.optimise();
+					O.print_labels();	
+					if(val){cout << "ProjectedModularity = " << O.val << endl; }	
+				}
 			}	
 		} else {
 			BarberModularity Q(B);	

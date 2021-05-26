@@ -9,5 +9,6 @@
 #include "louvain/louvain.h"
 #include "louvain/bilouvain.h"
 #include "louvain/projected_louvain.h"
+#include "louvain/dual_projection.h"
 
 #endif 
