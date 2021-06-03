@@ -14,10 +14,13 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace std; 
 
 typedef pair<int, double> link;
+typedef unordered_map< int, unordered_map<int, double> > adjacency_map;
 
 ///Interface for network objects
 class Network {
@@ -25,12 +28,13 @@ class Network {
 		int num_nodes; 		
 		double num_links;
 
-		vector< double > degrees;			
-		vector< vector<link> > get_nbrs; 	///neighbour list
-
+		unordered_map< int, double > degrees;			
+		//vector< vector<link> > get_nbrs; 	///neighbour list
+		adjacency_map get_nbrs;
+		
 		//depreciated
-		vector< double > cum_degrees;  		///cumulative degree distribution cum_degree[i] = degree[0] + degree[1] + ... + degree[i]; 
-		vector< link > neighbours; 			///edge list
+		//vector< double > cum_degrees;  		///cumulative degree distribution cum_degree[i] = degree[0] + degree[1] + ... + degree[i]; 
+		//vector< link > neighbours; 			///edge list
 		
 		vector<int> new_to_old; 			///mapping between new and old node ids
 		//depreciated
@@ -41,64 +45,123 @@ class Network {
 		Network(){
 			num_nodes = 0;
 			num_links = 0;
-			degrees.resize(0);
-			cum_degrees.resize(0);
-			neighbours.resize(0);
-			get_nbrs.resize(0);
+			//degrees.resize(0);
+			//cum_degrees.resize(0);
+			//neighbours.resize(0);
+			//get_nbrs.resize(0);
+			degrees.clear();
+			get_nbrs.clear();
 			network_type="network";
 		}		
 		
-		Network(map< int, vector<link> > &lk);
-		
-		void set(map< int, vector<link> > &lk);
-		void compute_indices(map< int, vector<link> > &lk);
-		void reindex(map< int, vector<link> > &lk);
-		map< int, vector<link> > read(const char* filename);
-		map< int, vector<link> > to_map();
+		//Network(map< int, vector<link> > &lk);
+		Network(adjacency_map &mp);
+		void set(adjacency_map &mp);
+		void read(const char* filename);
+
+		void compute_degrees();
+		void compute_indices();
+		void reindex();
+		adjacency_map to_map();
 		
 		void print_basic(bool use_original_ids=true);
 		double selfloop(int node);
-		Network induced_graph(vector<int> &label);
+		Network induced_graph(unordered_map<int, int> &label);
+		void join(int i, int j);
 		
 };
 
-Network::Network(map< int, vector<link> > &lk){
+
+//A_i',a = A_ja + A_ia
+//combine node j into i
+void Network::join(int i, int j){ 
+	if(i != j){
+		for(auto &k : get_nbrs[j]){ //k is neighbour of j
+			int a = k.first;
+			if(a == i){ //connections between i and j become self loops
+				if( get_nbrs[i].find(a) == get_nbrs[i].end() ){ //does i already have a self loop?
+					get_nbrs[i][i] = 2*k.second;
+				} else {
+					get_nbrs[i][i] += 2*k.second;
+				}
+				get_nbrs[a].erase(j);  
+			} else if(a == j) { //self loops of j remain self loops
+				if( get_nbrs[i].find(a) == get_nbrs[i].end() ){
+					get_nbrs[i][i] = k.second;
+				} else {
+					get_nbrs[i][i] += k.second;
+				}
+			} else {
+				if( get_nbrs[i].find(a) == get_nbrs[i].end() ){
+					get_nbrs[i][a] = k.second;
+					get_nbrs[a][i] = k.second;
+				} else {
+					get_nbrs[i][a] += k.second;
+					get_nbrs[a][i] += k.second;
+				}
+				get_nbrs[a].erase(j);  
+			}
+
+		}
+		degrees[i] += degrees[j];
+
+		get_nbrs.erase(j);  
+		degrees.erase(j);
+		--num_nodes;
+	}
+}
+
+Network::Network(adjacency_map &mp){
 	network_type="network";		
-	set(lk);
+	set(mp);
 }
 
 ///Set up a network object from a map
-void Network::set(map< int, vector<link> > &lk){
-	num_nodes = lk.size();
+void Network::set(adjacency_map &mp){
+	
+	get_nbrs = mp;
+	num_nodes = mp.size();
 	num_links = 0; 
-	for(map<int, vector<link> >::iterator it = lk.begin(); it != lk.end(); ++it){ 
+	for(auto it = mp.begin(); it != mp.end(); ++it){ 
 		for (auto &j : it->second) {
 			num_links += j.second ;
 		} 
 	}
-	compute_indices(lk);
-	reindex(lk);
+	//compute_indices();
+	//reindex();
+	compute_degrees();
 }
 
 ///return a map representation of the Network
-map< int, vector<link> > Network::to_map(){
+adjacency_map Network::to_map(){
 	
-	map< int, vector<link> > lk;
+	adjacency_map mp;
 	
-	for(int i=0; i<num_nodes; ++i){ 		
-		for( auto &j : get_nbrs[ i ] ){ lk[ new_to_old[i] ].push_back(j); }
+	for(unsigned i=0; i<mp.size(); ++i){ 		
+		for( auto &j : get_nbrs[ i ] ){ mp[ new_to_old[i] ][ new_to_old[j.first] ] = j.second; }
 	} 	
 	
-	return lk;
+	return mp;
+	
+}
+
+void Network::compute_degrees(){
+
+	degrees.clear();
+	for(auto &i: get_nbrs){
+		double d = 0;
+		for( auto &j : i.second ){ d += j.second; }
+		degrees[i.first] = d;
+	}
 	
 }
 
 ///Ensure node labels go from 0 to num_nodes-1. Keep a map to the input labels
-void Network::compute_indices(map< int, vector<link> > &lk){
+void Network::compute_indices(){
 
 	new_to_old.resize(0);
 	old_to_new.clear();
-	for(map<int, vector<link> >::iterator it = lk.begin(); it != lk.end(); ++it){
+	for(auto it = get_nbrs.begin(); it != get_nbrs.end(); ++it){
 		old_to_new[it->first] = new_to_old.size();
 		new_to_old.push_back(it->first);
 	}
@@ -106,27 +169,32 @@ void Network::compute_indices(map< int, vector<link> > &lk){
 }
 
 ///compute the node degrees & neighbour list
-void Network::reindex(map< int, vector<link> > &lk){
+void Network::reindex(){
 			
-	neighbours.resize(0);
-	degrees.resize(0);
-	get_nbrs.resize(num_nodes);
+	//neighbours.resize(0);
+	//degrees.resize(0);
+	//get_nbrs.resize(num_nodes);
+	degrees.clear();
+	adjacency_map tmp;
 	
-	for(int i=0; i<num_nodes; ++i){ 
-
+	for(unsigned i=0; i<get_nbrs.size(); ++i){ 
 
 		double d = 0;
-		for( auto &j : lk[ new_to_old[i] ] ){ d += j.second; }
-		degrees.push_back( d ); 
-		(i==0) ? cum_degrees.push_back( d ) : cum_degrees.push_back( cum_degrees.back() + d ); 
+		for( auto &j : get_nbrs[ new_to_old[i] ] ){ d += j.second; }
+		degrees[i] = d;
+		//degrees.push_back( d ); 
+		//(i==0) ? cum_degrees.push_back( d ) : cum_degrees.push_back( cum_degrees.back() + d ); 
 		
-		get_nbrs[i].resize(0);
-		for( auto &j : lk[ new_to_old[i] ] ){
-			neighbours.push_back( make_pair(  old_to_new[ j.first ], j.second )  );
-			get_nbrs[i].push_back( neighbours.back() );
+		//get_nbrs[i].resize(0);
+		for( auto &j : get_nbrs[ new_to_old[i] ] ){
+			//neighbours.push_back( make_pair(  old_to_new[ j.first ], j.second )  );
+			//get_nbrs[i].push_back( neighbours.back() );
+			tmp[i][ old_to_new[ j.first ] ] = j.second;
 		} 
 		
-	} 	
+	}
+	
+	get_nbrs = tmp; 	
 		
 }
 	
@@ -144,7 +212,7 @@ void Network::reindex(map< int, vector<link> > &lk){
  * 1 2 3 ...
  * Edges are assumed to be bidirectional!
  * **/
-map< int, vector<link> > Network::read(const char* filename){
+void Network::read(const char* filename){
 	
 	ifstream infile(filename);
 	if (infile.is_open() != true) {
@@ -156,7 +224,7 @@ map< int, vector<link> > Network::read(const char* filename){
 
 
 	num_links = 0;	
-	map< int, vector<link> > lk;
+	//map< int, vector<link> > lk;
 	
 	while(getline(infile, line)) {
 
@@ -182,7 +250,10 @@ map< int, vector<link> > Network::read(const char* filename){
 		}
 		
 		a = n[0]; b = n[1];
-		if( lk.find(a) == lk.end() ){
+		get_nbrs[a][b] = w;
+		if(a != b){ get_nbrs[b][a] = w; }
+		else{ get_nbrs[a][a] += w; }
+		/*if( lk.find(a) == lk.end() ){
 			lk[a] = vector<link>{ make_pair(b, w) };
 		} else {
 			lk[a].push_back( make_pair(b, w) ); 						
@@ -197,14 +268,16 @@ map< int, vector<link> > Network::read(const char* filename){
 				auto it = find (lk[b].begin(), lk[b].end(), make_pair(a, w));
 				it->second += w;
 			}
-		}
+		}*/
 		num_links+=2*w;
 			
 	}
 	infile.close();
-	num_nodes = lk.size();
-	return lk;	
-  	
+	//num_nodes = lk.size();
+	num_nodes = get_nbrs.size();
+	//return lk;	
+  	compute_degrees();
+
   	
 }
 
@@ -213,14 +286,18 @@ map< int, vector<link> > Network::read(const char* filename){
 
 ///return the self edge weight at n. 
 double Network::selfloop(int n){
-	for (auto &j : get_nbrs[n]) {
+	/*for (auto &j : get_nbrs[n]) {
 		if(n == j.first){ return j.second; }
+	}*/
+	auto it = get_nbrs[n].find(n);
+	if(it != get_nbrs[n].end()){
+		return it->second;
 	}
 	return 0;
 }
 
 ///Use a node labelling to compute an induced network	
-Network Network::induced_graph(vector<int> &label){
+Network Network::induced_graph(unordered_map<int, int> &label){
 	cerr << "induced_graph should not be called from Base class Network" << endl;
 	exit(1);
 	return Network();
@@ -232,30 +309,39 @@ void Network::print_basic(bool use_original_ids){
 	cout << num_nodes << " nodes" << endl;
 	cout << num_links << " total edge weight" << endl;
 	//int cid = 0;
-	for(int i=0; i<num_nodes; ++i){ 
-		for( auto &j : get_nbrs[i] ){
-			int a = (use_original_ids) ? new_to_old[i] : i;
+	//for(unsigned i=0; i<get_nbrs.size(); ++i){ 
+	for(auto &ii : get_nbrs){ 
+		int a = ii.first;
+		//for( auto &j : get_nbrs[i] ){
+		for( auto &j : ii.second ){
+			//int a = (use_original_ids) ? new_to_old[i] : i;
 			//int b = (use_original_ids) ? new_to_old[ neighbours[cid].first ] : neighbours[cid].first;
 			//cout << a << "---[" << neighbours[cid].second << "]---" << b << endl;
 
-			int b = (use_original_ids) ? new_to_old[ j.first ] : j.first;
+			//int b = (use_original_ids) ? new_to_old[ j.first ] : j.first;
+			int b = j.first;
 			cout << a << "---[" << j.second << "]---" << b << endl;
 			
 			//++cid;
 		}
 	}
-	for(int i=0; i<num_nodes; ++i){ 
-		int a = (use_original_ids) ? new_to_old[i] : i;
-		
+	//for(unsigned i=0; i<get_nbrs.size(); ++i){ 
+	for(auto &ii : get_nbrs){ 
+		//int a = (use_original_ids) ? new_to_old[i] : i;
+		int a = ii.first;
 		cout << "neighbours of " << a << " ( ";
-		for( auto &j : get_nbrs[i] ){		
-			int b = (use_original_ids) ? new_to_old[ j.first ] : j.first;
+		//for( auto &j : get_nbrs[i] ){		
+		for( auto &j : ii.second ){
+			int b = j.first; //(use_original_ids) ? new_to_old[ j.first ] : j.first;
 			cout << b << " ";
 		} cout << ")" << endl;
 	}
-	for(int i=0; i<num_nodes; ++i){ 
-		int a = (use_original_ids) ? new_to_old[i] : i;
-		cout << "degree " << a << ": " << degrees[i] << " " << cum_degrees[i] << endl; 
+	double cum_degree = 0;
+	//for(unsigned i=0; i<degrees.size(); ++i){ 
+	for(auto &i: degrees){ 
+		int a = i.first; //(use_original_ids) ? new_to_old[i] : i;
+		cum_degree += i.second; //degrees[i];
+		cout << "degree " << a << ": " << i.second << " " << cum_degree << endl; 
 	}
 }
 
