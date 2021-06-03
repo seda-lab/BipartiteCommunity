@@ -1,8 +1,6 @@
 #include <iostream>
 #include "network.h"
 #include "weighted_network.h"
-//#include "bipartite_network.h"
-//#include "projector.h"
 
 using namespace std; 
 
